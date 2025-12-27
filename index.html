@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Pesticides ERP Prototype</title>
+    <!-- React & ReactDOM (Development Version) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel (for JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS (CDN - Play CDN only for prototype) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Destructure React hooks
+        const { useState, useEffect, useRef } = React;
+
+        function PrototypeApp() {
+            // --- Mocked Data (initial seed) ---
+            const initialProducts = [
+                { id: 1, sku: "PC-1001", name: "AlphaCide 25% EC (Insecticide)", brand: "AlphaChem", company: "AgriChem Pvt Ltd", category: "Insecticide", unit: "Liter", purchase_price: 450, sell_price: 700, shop_qty: 80, warehouse_qty: 40, reorder_level: 30 },
+                { id: 2, sku: "PC-1002", name: "GlyphoMax 41% SL (Herbicide)", brand: "FieldSafe", company: "GreenField Agro", category: "Herbicide", unit: "Liter", purchase_price: 780, sell_price: 1200, shop_qty: 20, warehouse_qty: 40, reorder_level: 20 },
+                { id: 3, sku: "PC-2001", name: "Mancozeb 75% WP (Fungicide)", brand: "FungiGone", company: "PestiSafe Industries", category: "Fungicide", unit: "Kilogram", purchase_price: 1500, sell_price: 2100, shop_qty: 15, warehouse_qty: 25, reorder_level: 15 },
+                { id: 4, sku: "PC-2002", name: "NeemGuard 50% EC (Biopesticide)", brand: "BioGrow", company: "AgriChem Pvt Ltd", category: "Biopesticide", unit: "Liter", purchase_price: 320, sell_price: 500, shop_qty: 50, warehouse_qty: 40, reorder_level: 25 },
+                { id: 5, sku: "PC-3001", name: "Rodentex Bait Blocks (Rodenticide)", brand: "PestBlock", company: "GreenField Agro", category: "Rodenticide", unit: "Box", purchase_price: 200, sell_price: 350, shop_qty: 40, warehouse_qty: 35, reorder_level: 20 },
+                { id: 6, sku: "PC-3002", name: "NemaClear 3% GR (Nematicide)", brand: "SoilCare", company: "PestiSafe Industries", category: "Nematicide", unit: "Kilogram", purchase_price: 900, sell_price: 1350, shop_qty: 10, warehouse_qty: 15, reorder_level: 10 },
+            ];
+
+            const initialVendors = [
+                { id: 1, name: "AgriLink Distributors", cnic: "35202-1112223-9", mobile: "0300-5551112", address: "Lahore" },
+                { id: 2, name: "Farmers Wholesale (MKT)", cnic: "35202-3334445-7", mobile: "0301-7778889", address: "Multan" },
+            ];
+
+            const initialCustomers = [
+                { id: 1, name: "Muhammad Ali (Farmer)", cnic: "35202-7654321-3", mobile: "0312-4445556", address: "Bahawalpur" },
+                { id: 2, name: "Ahmed Retail Store", cnic: "", mobile: "0345-2223334", address: "Sahiwal" },
+            ];
+
+            const initialCompanies = [
+                { id: 1, name: "AgriChem Pvt Ltd", contact: "0321-000111", address: "Sahiwal" },
+                { id: 2, name: "GreenField Agro", contact: "0333-222333", address: "Lahore" },
+                { id: 3, name: "PestiSafe Industries", contact: "0302-4445556", address: "Faisalabad" },
+            ];
+
+            const initialSalesOfficers = [
+                { id: 1, name: "Aslam Khan", mobile: "0300-2223334", area: "South Punjab" },
+                { id: 2, name: "Sadia Bibi", mobile: "0301-1234567", area: "Central" },
+            ];
+
+            const initialEmployees = [
+                { id: 1, name: "Bilal Ahmed", designation: "Accountant", mobile: "0300-1112223", salary: 45000, status: "Active" },
+                { id: 2, name: "Kamran Ali", designation: "Driver", mobile: "0321-3334445", salary: 25000, status: "Active" },
+                { id: 3, name: "Sara Khan", designation: "Sales Assistant", mobile: "0345-5556667", salary: 30000, status: "On Leave" },
+            ];
+
+            // --- App state ---
+            const [user, setUser] = useState(null); // null = not logged in
+            const [products, setProducts] = useState(initialProducts);
+            const [vendors, setVendors] = useState(initialVendors);
+            const [customers, setCustomers] = useState(initialCustomers);
+            const [companies, setCompanies] = useState(initialCompanies);
+            const [salesOfficers, setSalesOfficers] = useState(initialSalesOfficers);
+            const [employees, setEmployees] = useState(initialEmployees);
+            const [invoices, setInvoices] = useState([]);
+            const [purchases, setPurchases] = useState([]);
+            const [orders, setOrders] = useState([]);
+            const [stockMovements, setStockMovements] = useState([]);
+            const [auditLogs, setAuditLogs] = useState([]);
+            const [expenses, setExpenses] = useState([]); // { id, title, amount, date, category }
+
+            // UI/navigation
+            const [page, setPage] = useState("dashboard");
+            const [search, setSearch] = useState("");
+            const [cart, setCart] = useState([]);
+            const [notification, setNotification] = useState(null);
+
+            // Product modal (workable card detail)
+            const [productModal, setProductModal] = useState({ open: false, product: null });
+
+            // POS Global State (lifted to prevent reset on re-renders)
+            const [orderSource, setOrderSource] = useState('shop'); // shop or warehouse
+
+
+
+            useEffect(() => {
+                if (notification) {
+                    const t = setTimeout(() => setNotification(null), 3500);
+                    return () => clearTimeout(t);
+                }
+            }, [notification]);
+
+            // --- Utility functions ---
+            const addAudit = (action, target_table, target_id, oldValue, newValue) => {
+                const entry = {
+                    id: auditLogs.length + 1,
+                    user: user?.username || "system",
+                    action,
+                    target_table,
+                    target_id,
+                    old_value: oldValue,
+                    new_value: newValue,
+                    timestamp: new Date().toISOString(),
+                };
+                setAuditLogs(prev => [entry, ...prev]);
+            };
+
+            // --- Products CRUD (in-memory) ---
+            const createProduct = (p) => {
+                const newP = { ...p, id: products.length + 1 };
+                setProducts(prev => [newP, ...prev]);
+                addAudit("create_product", "product", newP.id, null, JSON.stringify(newP));
+                setNotification({ type: "success", text: `Product '${newP.name}' added` });
+            };
+
+            const updateProductQty = (productId, delta, reason = "adjustment", location = "shop", relatedParty = "-") => {
+                setProducts(prev => prev.map(prod => {
+                    if (prod.id === productId) {
+                        const old = { ...prod };
+                        let updated = { ...prod };
+                        if (location === 'shop') updated.shop_qty = (prod.shop_qty || 0) + delta;
+                        else updated.warehouse_qty = (prod.warehouse_qty || 0) + delta;
+
+                        addAudit("stock_change", "product", prod.id, JSON.stringify(old), JSON.stringify(updated));
+                        setStockMovements(sm => [{ id: sm.length + 1, product_id: prod.id, related_party: relatedParty, qty: delta, type: delta > 0 ? "in" : "out", reason: `${reason} (${location})`, timestamp: new Date().toISOString(), user: user?.username || 'system' }, ...sm]);
+                        return updated;
+                    }
+                    return prod;
+                }));
+            };
+
+            const updateProduct = (updatedProduct) => {
+                setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+                addAudit("update_product", "product", updatedProduct.id, null, JSON.stringify(updatedProduct));
+                setNotification({ type: "success", text: `Product '${updatedProduct.name}' updated` });
+            };
+
+            const deleteProduct = (productId) => {
+                const p = products.find(x => x.id === productId);
+                if (!p) return;
+                if (confirm(`Are you sure you want to delete '${p.name}'?`)) {
+                    setProducts(prev => prev.filter(x => x.id !== productId));
+                    addAudit("delete_product", "product", productId, JSON.stringify(p), null);
+                    setNotification({ type: "success", text: `Product deleted` });
+                }
+            };
+
+            // --- POS: add to cart, invoice creation ---
+            const searchProducts = (q) => {
+                const qq = q.trim().toLowerCase();
+                if (!qq) return products;
+                return products.filter(p => (p.name + " " + p.brand + " " + p.company + " " + p.sku).toLowerCase().includes(qq));
+            };
+
+            const addToCart = (productId, qty = 1, location = 'shop') => {
+                const p = products.find(x => x.id === productId);
+                if (!p) return setNotification({ type: 'error', text: 'Product not found' });
+                const available = location === 'shop' ? (p.shop_qty || 0) : (p.warehouse_qty || 0);
+                if (available < qty) return setNotification({ type: 'error', text: `Insufficient stock in ${location}` });
+                setCart(prev => {
+                    const existing = prev.find(it => it.product.id === productId);
+                    if (existing) {
+                        return prev.map(it => it.product.id === productId ? { ...it, qty: it.qty + qty } : it);
+                    }
+                    return [...prev, { product: p, qty }];
+                });
+            };
+
+            const removeFromCart = (productId) => setCart(prev => prev.filter(it => it.product.id !== productId));
+
+            const createInvoice = ({ type = 'shop', customer = null, payment = { method: 'full', amount: 0 }, discount = { type: 'none', value: 0 }, salesOfficer = null, location = 'shop' }) => {
+                if (cart.length === 0) return setNotification({ type: 'error', text: 'Cart is empty' });
+                // calculate totals
+                let subtotal = 0;
+                const items = cart.map(it => {
+                    const line = { product_id: it.product.id, name: it.product.name, qty: it.qty, unit_price: it.product.sell_price };
+                    subtotal += it.qty * it.product.sell_price;
+                    return line;
+                });
+                let discountAmount = 0;
+                if (discount.type === 'fixed') discountAmount = discount.value;
+                if (discount.type === 'percent') discountAmount = Math.round((subtotal * discount.value) / 100);
+                const total = subtotal - discountAmount;
+                const paid_amount = payment.method === 'full' ? total : payment.method === 'partial' ? Math.min(payment.amount, total) : 0;
+                const status = paid_amount >= total ? 'paid' : paid_amount === 0 ? 'credit' : 'partial';
+
+                const invoice = {
+                    id: invoices.length + 1,
+                    invoice_no: `INV-${1000 + invoices.length + 1}`,
+                    type,
+                    customer_id: customer?.id || null,
+                    customer_name: customer?.name || 'Walk-in Customer',
+                    customer_mobile: customer?.mobile || '',
+                    customer_address: customer?.address || '',
+                    customer_cnic: customer?.cnic || '',
+                    items,
+                    subtotal,
+                    discount: discountAmount,
+                    total,
+                    paid_amount,
+                    payment_status: status,
+                    sales_officer: salesOfficer?.id || null,
+                    created_by: user?.username || 'demo',
+                    created_at: new Date().toISOString(),
+                    location, // Track source
+                };
+                setInvoices(prev => [invoice, ...prev]);
+                // reduce stock (simulate)
+                const custName = customer?.name || 'Walk-in Customer';
+                items.forEach(it => updateProductQty(it.product_id, -it.qty, `sale invoice ${invoice.invoice_no}`, location, custName));
+                addAudit('create_invoice', 'invoice', invoice.id, null, JSON.stringify(invoice));
+                setCart([]);
+                setNotification({ type: 'success', text: `Invoice ${invoice.invoice_no} created (${invoice.payment_status})` });
+                return invoice;
+            };
+
+            // --- Purchase creation (increase stock) ---
+            const createPurchase = ({ vendor, items, advance = 0 }) => {
+                if (!items || items.length === 0) return setNotification({ type: 'error', text: 'No items in purchase' });
+                let total = 0;
+                items.forEach(it => { total += it.qty * it.purchase_price; });
+                const purchase = { id: purchases.length + 1, purchase_no: `PUR-${500 + purchases.length + 1}`, vendor_id: vendor?.id || null, items, total, advance_paid: advance, created_at: new Date().toISOString() };
+                setPurchases(prev => [purchase, ...prev]);
+                // increase stock
+                const vendName = vendor?.name || 'Unknown Vendor';
+                items.forEach(it => updateProductQty(it.product_id, it.qty, `purchase ${purchase.purchase_no}`, 'shop', vendName));
+                addAudit('create_purchase', 'purchase', purchase.id, null, JSON.stringify(purchase));
+                setNotification({ type: 'success', text: `Purchase ${purchase.purchase_no} recorded` });
+                return purchase;
+            };
+
+            // --- Orders (pre-booking) ---
+            const createOrder = ({ customer, items, payment = { method: 'none', amount: 0 } }) => {
+                if (!items || items.length === 0) return setNotification({ type: 'error', text: 'No items in order' });
+                const order = { id: orders.length + 1, order_no: `ORD-${200 + orders.length + 1}`, customer_id: customer?.id || null, items, payment_status: payment.method === 'none' ? 'no_payment' : payment.method === 'partial' ? 'partial' : 'full', created_at: new Date().toISOString() };
+                setOrders(prev => [order, ...prev]);
+                // For prototype: we mark allocation but do NOT deduct physical stock until confirmed; show it as "reserved"
+                setStockMovements(sm => [{ id: sm.length + 1, product_id: items[0].product_id, qty: -items[0].qty, type: 'reserved', reason: `order ${order.order_no}`, timestamp: new Date().toISOString(), user: user?.username || 'system' }, ...sm]);
+                addAudit('create_order', 'order', order.id, null, JSON.stringify(order));
+                setNotification({ type: 'success', text: `Order ${order.order_no} booked (${order.payment_status})` });
+                return order;
+            };
+
+            const cancelOrder = (orderId) => {
+                const ord = orders.find(o => o.id === orderId);
+                if (!ord) return setNotification({ type: 'error', text: 'Order not found' });
+                // restore reserved stock (prototype sim)
+                ord.items.forEach(it => updateProductQty(it.product_id, it.qty, `order_cancel ${ord.order_no}`));
+                setOrders(prev => prev.filter(o => o.id !== orderId));
+                addAudit('cancel_order', 'order', ord.id, JSON.stringify(ord), null);
+                setNotification({ type: 'success', text: `Order ${ord.order_no} cancelled` });
+            };
+
+            // --- Customer CRUD ---
+            const createCustomer = (c) => {
+                const newC = { ...c, id: customers.length + 1 };
+                setCustomers(prev => [newC, ...prev]);
+                addAudit("create_customer", "customer", newC.id, null, JSON.stringify(newC));
+                setNotification({ type: "success", text: "Customer added" });
+                return newC;
+            };
+
+            // --- Employee CRUD ---
+            const createEmployee = (emp) => {
+                const newEmp = { ...emp, id: employees.length + 1 };
+                setEmployees(prev => [newEmp, ...prev]);
+                addAudit("add_employee", "employee", newEmp.id, null, JSON.stringify(newEmp));
+                setNotification({ type: "success", text: "Employee added successfully" });
+            };
+
+            const updateEmployee = (id, updatedData) => {
+                setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...updatedData } : e));
+                addAudit("update_employee", "employee", id, null, JSON.stringify(updatedData));
+                setNotification({ type: "success", text: "Employee updated" });
+            };
+
+            const deleteEmployee = (id) => {
+                if (!confirm("Are you sure you want to remove this employee?")) return;
+                setEmployees(prev => prev.filter(e => e.id !== id));
+                addAudit("delete_employee", "employee", id, null, null);
+                setNotification({ type: "success", text: "Employee removed" });
+            };
+
+            // --- Financial Logic ---
+            const createExpense = (exp) => {
+                const newE = { ...exp, id: expenses.length + 1, date: new Date().toISOString() };
+                setExpenses(prev => [newE, ...prev]);
+                addAudit("create_expense", "expense", newE.id, null, JSON.stringify(newE));
+                setNotification({ type: "success", text: "Expense recorded" });
+            };
+            const deleteExpense = (id) => {
+                setExpenses(prev => prev.filter(e => e.id !== id));
+                setNotification({ type: "success", text: "Expense deleted" });
+            };
+
+            const getCustomerBalance = (custId) => {
+                const custInvoices = invoices.filter(i => i.customer_id === custId && i.payment_status !== 'cancelled');
+                const totalDebits = custInvoices.reduce((sum, inv) => sum + (inv.total - inv.paid_amount), 0);
+                const totalCredits = 0; // Future: sum of 'payments' from customer
+                return totalDebits - totalCredits;
+            };
+
+            const getVendorBalance = (vendId) => {
+                const vendPurchases = purchases.filter(p => p.vendor_id === vendId);
+                const totalCredits = vendPurchases.reduce((sum, p) => sum + (p.total - p.advance_paid), 0); // Payable increases
+                const totalDebits = 0; // Future: sum of 'payments' to vendor
+                return totalCredits - totalDebits;
+            };
+
+            // Replaces existing customerLedger helper
+            const customerLedger = (custId) => {
+                // Return simple object for now
+                return { balance: getCustomerBalance(custId) };
+            };
+
+            // --- Small helpers to simulate prints & FBR-format invoice preview ---
+            const printInvoice = (invoice) => {
+                const html = `
+      <html><head><title>${invoice.invoice_no}</title></head><body><pre>${JSON.stringify(invoice, null, 2)}</pre></body></html>`;
+                const w = window.open('', '_blank', 'width=800,height=900');
+                w.document.write(html);
+                w.document.close();
+                w.print();
+            };
+
+            // --- Login for prototype (no auth backend) ---
+            const login = (username, role = 'Cashier') => {
+                setUser({ username, role });
+                setPage('dashboard');
+                setNotification({ type: 'success', text: `Logged in as ${username} (${role})` });
+            };
+
+            // --- UI Enhancements: small animated card component ---
+            const Card = ({ title, subtitle, value, onClick, children }) => (
+                <div
+                    onClick={onClick}
+                    role={onClick ? 'button' : 'article'}
+                    tabIndex={0}
+                    className={`card bg-white p-4 rounded shadow cursor-pointer transition-transform transform hover:-translate-y-2 hover:scale-[1.02] focus:scale-[1.02]`}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && onClick) onClick(); }}
+                >
+                    <div className="text-sm text-gray-500">{subtitle}</div>
+                    <div className="flex items-center justify-between">
+                        <div className="font-semibold text-lg">{title}</div>
+                        {value !== undefined && <div className="text-xl font-bold">{value}</div>}
+                    </div>
+                    {children}
+                </div>
+            );
+
+            // --- Product Modal (workable card detail) ---
+            const openProductModal = (product) => setProductModal({ open: true, product });
+            const closeProductModal = () => setProductModal({ open: false, product: null });
+            const adjustProductQty = (productId, delta) => {
+                updateProductQty(productId, delta, 'manual_adjust_from_modal');
+                // refresh modal product
+                const p = products.find(p => p.id === productId);
+                setProductModal({ open: true, product: p });
+            };
+
+            // --- Small helpers to simulate prints & stylings for fade-in ---
+            const totalSales = invoices.reduce((s, inv) => s + inv.total, 0);
+            const receivables = invoices.reduce((s, inv) => s + (inv.total - inv.paid_amount), 0);
+            const lowStock = products.filter(p => p.current_qty <= p.reorder_level);
+
+            // --- UI Components (small) ---
+            const LeftNav = () => (
+                <div className="w-64 bg-white h-screen border-r p-4 flex flex-col gap-4">
+                    <div className="text-xl font-bold">Pesticides ERP</div>
+                    <div className="flex-1 overflow-auto space-y-1">
+                        <NavItem label="Dashboard" isActive={page === 'dashboard'} onClick={() => setPage('dashboard')} />
+                        <NavItem label="Billing (POS)" isActive={page === 'pos'} onClick={() => setPage('pos')} />
+                        <NavItem label="Products" isActive={page === 'products'} onClick={() => setPage('products')} />
+                        <NavItem label="Purchases" isActive={page === 'purchases'} onClick={() => setPage('purchases')} />
+                        <NavItem label="Orders / Pre-booking" isActive={page === 'orders'} onClick={() => setPage('orders')} />
+                        <NavItem label="Vendors & Companies" isActive={page === 'vendors'} onClick={() => setPage('vendors')} />
+                        <NavItem label="Sales Officers" isActive={page === 'sales_officers'} onClick={() => setPage('sales_officers')} />
+                        <NavItem label="Accounting / Ledgers" isActive={page === 'accounting'} onClick={() => setPage('accounting')} />
+                        <NavItem label="Employees & Payroll" isActive={page === 'employees'} onClick={() => setPage('employees')} />
+                        <NavItem label="Reports" isActive={page === 'reports'} onClick={() => setPage('reports')} />
+                        <NavItem label="Settings" isActive={page === 'settings'} onClick={() => setPage('settings')} />
+                    </div>
+                    <div>
+                        <div className="text-xs text-gray-500">User</div>
+                        <div className="font-medium">{user?.username || 'Not logged'}</div>
+                        <div className="text-xs mt-2 flex gap-2">
+                            <button className="px-2 py-1 bg-gray-100 rounded" onClick={() => { setUser(null); setPage('login'); }}>Logout</button>
+                            <button className="px-2 py-1 bg-green-100 rounded" onClick={() => { setNotification({ type: 'info', text: 'Security activated (prototype)' }) }}>Security</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const NavItem = ({ label, onClick, isActive }) => (
+                <div
+                    className={`py-2 px-3 rounded cursor-pointer transition-all duration-200 ${isActive ? 'bg-white shadow-md font-semibold text-blue-600 transform scale-105' : 'hover:bg-gray-100 text-gray-600'}`}
+                    onClick={onClick}
+                >
+                    {label}
+                </div>
+            );
+
+            // --- Pages ---
+            const LoginPage = () => {
+                const [username, setUsername] = useState('cashier1');
+                const [role, setRole] = useState('Cashier');
+                return (
+                    <div className="flex items-center justify-center h-screen bg-sky-50">
+                        <div className="bg-white p-6 rounded shadow w-96">
+                            <h2 className="text-xl font-bold mb-4">Login - Prototype</h2>
+                            <label className="text-xs">Username</label>
+                            <input className="w-full border p-2 rounded mb-3" value={username} onChange={e => setUsername(e.target.value)} />
+                            <label className="text-xs">Role</label>
+                            <select className="w-full border p-2 rounded mb-4" value={role} onChange={e => setRole(e.target.value)}>
+                                <option>Admin</option>
+                                <option>Accountant</option>
+                                <option>Stock Manager</option>
+                                <option>Cashier</option>
+                            </select>
+                            <div className="flex gap-2">
+                                <button className="flex-1 bg-blue-600 text-white p-2 rounded" onClick={() => login(username, role)}>Login</button>
+                                <button className="flex-1 border p-2 rounded" onClick={() => { setUsername('owner'); setRole('Admin'); login('owner', 'Admin'); }}>Login as Owner</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const Dashboard = () => {
+                return (
+                    <div className="p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-2xl font-bold">Dashboard</h1>
+                            <div className="flex gap-2">
+                                <input placeholder="Search product..." value={search} onChange={e => setSearch(e.target.value)} className="border px-3 py-2 rounded" />
+                                <button className="px-3 py-2 bg-blue-600 text-white rounded" onClick={() => { const res = searchProducts(search); setNotification({ type: 'info', text: `${res.length} products found` }) }}>Search</button>
+                            </div>
+                        </div>
+
+                        {/* Quick Actions */}
+                        <div className="flex gap-4 mb-6">
+                            <button className="flex-1/4 bg-blue-100 p-4 rounded-xl flex items-center gap-3 hover:bg-blue-200 transition cursor-pointer" onClick={() => setPage('pos')}>
+                                <div className="p-2 bg-blue-600 text-white rounded-lg">🛒</div>
+                                <div className="font-semibold text-blue-900">New Bill (POS)</div>
+                            </button>
+                            <button className="flex-1/4 bg-green-100 p-4 rounded-xl flex items-center gap-3 hover:bg-green-200 transition cursor-pointer" onClick={() => setPage('purchases')}>
+                                <div className="p-2 bg-green-600 text-white rounded-lg">📦</div>
+                                <div className="font-semibold text-green-900">Add Purchase</div>
+                            </button>
+                            <button className="flex-1/4 bg-red-100 p-4 rounded-xl flex items-center gap-3 hover:bg-red-200 transition cursor-pointer" onClick={() => setPage('accounting')}>
+                                <div className="p-2 bg-red-600 text-white rounded-lg">💸</div>
+                                <div className="font-semibold text-red-900">Record Expense</div>
+                            </button>
+                            <button className="flex-1/4 bg-purple-100 p-4 rounded-xl flex items-center gap-3 hover:bg-purple-200 transition cursor-pointer" onClick={() => setPage('reports')}>
+                                <div className="p-2 bg-purple-600 text-white rounded-lg">📊</div>
+                                <div className="font-semibold text-purple-900">Tax Report</div>
+                            </button>
+                        </div>
+
+
+                        {/* 8 Eye-Catching Metric Cards */}
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            {/* 1. Today's Sales */}
+                            <Card subtitle="Sales Volume" title={`PKR ${totalSales}`} onClick={() => setPage('reports')}>
+                                <div className="mt-2 h-1 w-full bg-blue-100 rounded overflow-hidden"><div className="h-full bg-blue-500 w-3/4"></div></div>
+                                <div className="text-xs text-blue-600 mt-1 font-medium">Top Performer</div>
+                            </Card>
+
+                            {/* 2. Cash Collected (Liquidity) */}
+                            <Card subtitle="Cash Collected" title={`PKR ${invoices.reduce((s, i) => s + (i.paid_amount || 0), 0)}`} onClick={() => setPage('accounting')}>
+                                <div className="mt-2 h-1 w-full bg-green-100 rounded overflow-hidden"><div className="h-full bg-green-500 w-1/2"></div></div>
+                                <div className="text-xs text-green-600 mt-1 font-medium">Realized Revenue</div>
+                            </Card>
+
+                            {/* 3. Receivables (Credit) */}
+                            <Card subtitle="Market Credit" title={`PKR ${receivables}`} onClick={() => setPage('accounting')}>
+                                <div className="mt-2 h-1 w-full bg-orange-100 rounded overflow-hidden"><div className="h-full bg-orange-500 w-1/3"></div></div>
+                                <div className="text-xs text-orange-600 mt-1 font-medium">Pending Inbound</div>
+                            </Card>
+
+                            {/* 4. Net Profit (Estimated) */}
+                            <Card subtitle="Net Profit (Est)" title={`PKR ${totalSales - invoices.reduce((s, inv) => s + inv.items.reduce((is, it) => is + (it.qty * (products.find(p => p.id === it.product_id)?.purchase_price || 0)), 0), 0)}`} onClick={() => setPage('reports')}>
+                                <div className="mt-2 h-1 w-full bg-purple-100 rounded overflow-hidden"><div className="h-full bg-purple-500 w-2/3"></div></div>
+                                <div className="text-xs text-purple-600 mt-1 font-medium">Healthy Margin</div>
+                            </Card>
+
+                            {/* 5. Inventory Value (Asset) */}
+                            <Card subtitle="Stock Asset Value" title={`PKR ${products.reduce((s, p) => s + (p.current_qty * p.purchase_price), 0)}`} onClick={() => setPage('products')}>
+                                <div className="mt-2 h-1 w-full bg-teal-100 rounded overflow-hidden"><div className="h-full bg-teal-500 w-4/5"></div></div>
+                                <div className="text-xs text-teal-600 mt-1 font-medium">Capital Locked</div>
+                            </Card>
+
+                            {/* 6. Purchase Volume */}
+                            <Card subtitle="Total Purchases" title={`PKR ${purchases.reduce((s, p) => s + p.total, 0)}`} onClick={() => setPage('purchases')}>
+                                <div className="mt-2 h-1 w-full bg-indigo-100 rounded overflow-hidden"><div className="h-full bg-indigo-500 w-1/4"></div></div>
+                                <div className="text-xs text-indigo-600 mt-1 font-medium">Restocking Flow</div>
+                            </Card>
+
+                            {/* 7. Low Stock Alerts */}
+                            <Card subtitle="Stock Alerts" title={`${lowStock.length} Items`} onClick={() => setPage('products')}>
+                                <div className="mt-2 h-1 w-full bg-red-100 rounded overflow-hidden"><div className="h-full bg-red-500 w-full"></div></div>
+                                <div className="text-xs text-red-600 mt-1 font-medium">Immediate Action</div>
+                            </Card>
+
+                            {/* 8. Active Orders */}
+                            <Card subtitle="Active Orders" title={`${orders.length} Pending`} onClick={() => setPage('orders')}>
+                                <div className="mt-2 h-1 w-full bg-pink-100 rounded overflow-hidden"><div className="h-full bg-pink-500 w-1/2"></div></div>
+                                <div className="text-xs text-pink-600 mt-1 font-medium">Future Sales</div>
+                            </Card>
+                        </div>
+
+
+                    </div>
+                );
+            };
+
+
+            const POSPage = () => {
+                const [localSearch, setLocalSearch] = useState("");
+                const [selectedCustomer, setSelectedCustomer] = useState(null);
+                const [discountType, setDiscountType] = useState('none');
+                const [discountValue, setDiscountValue] = useState(0);
+                const [paymentMethod, setPaymentMethod] = useState('full');
+                const [paymentAmount, setPaymentAmount] = useState(0);
+                // orderSource lifted to App scope to persist across re-renders
+
+                // Customer Search State
+                const [localCustomerSearch, setLocalCustomerSearch] = useState("");
+                const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+                const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+
+                const results = searchProducts(localSearch);
+                const subtotal = cart.reduce((s, it) => s + it.qty * it.product.sell_price, 0);
+                let discountAmount = 0;
+                if (discountType === 'fixed') discountAmount = Number(discountValue || 0);
+                if (discountType === 'percent') discountAmount = Math.round((subtotal * Number(discountValue || 0)) / 100);
+                const total = subtotal - discountAmount;
+
+                const makeInvoice = () => {
+                    const inv = createInvoice({ type: 'shop', customer: selectedCustomer, payment: { method: paymentMethod, amount: Number(paymentAmount) }, discount: { type: discountType === 'none' ? 'none' : discountType, value: Number(discountValue) }, location: orderSource });
+                    if (inv) {
+                        setNotification({ type: 'success', text: `Invoice ${inv.invoice_no} created` });
+                    }
+                };
+
+                return (
+                    <div className="flex h-[calc(100vh-4rem)]">
+                        {/* LEFT: Product Catalog (65%) */}
+                        <div className="w-[65%] p-4 bg-slate-50 flex flex-col border-r h-full">
+                            <div className="flex justify-between items-center mb-4">
+                                <h1 className="text-2xl font-bold text-gray-800">Product Catalog</h1>
+                                <button className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded font-medium text-gray-700 transition" onClick={() => setPage('dashboard')}>Exit POS</button>
+                            </div>
+
+                            {/* Search Bar */}
+                            <div className="mb-4 relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                                </div>
+                                <input
+                                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                    placeholder="Scan barcode or search product..."
+                                    autoFocus
+                                    value={localSearch}
+                                    onChange={e => setLocalSearch(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Product List / Grid */}
+                            <div className="flex-1 overflow-y-auto">
+                                <div className="grid grid-cols-3 gap-3">
+                                    {results.map(p => (
+                                        <div key={p.id}
+                                            className="bg-white p-3 rounded-lg shadow-sm border hover:border-blue-500 cursor-pointer transition select-none flex flex-col justify-between h-32"
+                                            onClick={() => addToCart(p.id, 1, orderSource)}
+                                        >
+                                            <div>
+                                                <div className="font-semibold text-gray-800 line-clamp-2 leading-tight">{p.name}</div>
+                                                <div className="text-xs text-gray-500 mt-1">{p.company}</div>
+                                                <div className="text-xs text-gray-400">
+                                                    {orderSource === 'shop' ? 'Shop Qty: ' : 'WH Qty: '}
+                                                    <span className={(orderSource === 'shop' ? p.shop_qty : p.warehouse_qty) < 10 ? 'text-red-500 font-bold' : ''}>
+                                                        {orderSource === 'shop' ? (p.shop_qty || 0) : (p.warehouse_qty || 0)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-blue-600 font-bold text-lg text-right">Rs {p.sell_price}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {results.length === 0 && <div className="text-center text-gray-500 mt-10">No products found</div>}
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Current Ticket / Cart (35%) */}
+                        <div className="w-[35%] bg-white p-0 flex flex-col h-full shadow-xl z-10">
+                            {/* Header */}
+                            <div className="p-4 bg-gray-800 text-white flex justify-between items-center shadow-md">
+                                <div className="font-bold text-lg">Current Bill</div>
+                                <button className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition" onClick={() => { setCart([]); setNotification({ type: 'info', text: 'Cart cleared' }) }}>Clear</button>
+                            </div>
+
+                            {/* Customer Select */}
+                            <div className="p-3 bg-gray-100 border-b space-y-2">
+                                <div className="flex gap-2 bg-white p-1 rounded border">
+                                    <button className={`flex-1 text-xs py-1 rounded transition ${orderSource === 'shop' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setOrderSource('shop')}>Shop Stock</button>
+                                    <button className={`flex-1 text-xs py-1 rounded transition ${orderSource === 'warehouse' ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setOrderSource('warehouse')}>Warehouse</button>
+                                </div>
+
+                                {/* Searchable Customer Select */}
+                                <div className="relative">
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <input
+                                                className="w-full border p-2 pl-8 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="Search Customer / Mobile..."
+                                                value={localCustomerSearch}
+                                                onChange={e => { setLocalCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
+                                                onFocus={() => setShowCustomerDropdown(true)}
+                                            />
+                                            <div className="absolute left-2.5 top-2.5 text-gray-400 text-xs">🔍</div>
+                                            {selectedCustomer && (
+                                                <button
+                                                    className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
+                                                    onClick={() => { setSelectedCustomer(null); setLocalCustomerSearch(''); }}
+                                                >✕</button>
+                                            )}
+                                        </div>
+                                        <button
+                                            className="bg-green-600 text-white px-3 rounded hover:bg-green-700 font-bold text-lg shadow-sm"
+                                            onClick={() => setShowAddCustomerModal(true)}
+                                            title="Quick Add Customer"
+                                        >+</button>
+                                    </div>
+
+                                    {showCustomerDropdown && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowCustomerDropdown(false)}></div>
+                                            <div className="absolute top-full left-0 right-0 bg-white shadow-xl border rounded mt-1 max-h-64 overflow-y-auto z-50 divide-y">
+                                                <div className="p-3 hover:bg-gray-50 cursor-pointer text-sm font-bold text-gray-600 flex justify-between items-center" onClick={() => { setSelectedCustomer(null); setLocalCustomerSearch(''); setShowCustomerDropdown(false); }}>
+                                                    <span>Walk-in Customer</span>
+                                                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">Default</span>
+                                                </div>
+                                                {customers.filter(c => c.name.toLowerCase().includes(localCustomerSearch.toLowerCase()) || c.mobile.includes(localCustomerSearch)).map(c => (
+                                                    <div key={c.id} className="p-3 hover:bg-blue-50 cursor-pointer" onClick={() => { setSelectedCustomer(c); setLocalCustomerSearch(c.name); setShowCustomerDropdown(false); }}>
+                                                        <div className="font-semibold text-gray-800 text-sm">{c.name}</div>
+                                                        <div className="text-xs text-gray-500 flex justify-between">
+                                                            <span>{c.mobile}</span>
+                                                            <span>{c.address}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {customers.filter(c => c.name.toLowerCase().includes(localCustomerSearch.toLowerCase()) || c.mobile.includes(localCustomerSearch)).length === 0 && (
+                                                    <div className="p-4 text-center text-gray-400 text-xs text-sm">No customers found</div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Add Customer Modal */}
+                            {showAddCustomerModal && (
+                                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-popIn">
+                                        <div className="bg-gray-800 p-4 text-white flex justify-between items-center">
+                                            <h3 className="font-bold">Add New Customer</h3>
+                                            <button onClick={() => setShowAddCustomerModal(false)} className="text-gray-400 hover:text-white">✕</button>
+                                        </div>
+                                        <div className="p-5 space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Full Name</label>
+                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" autoFocus placeholder="e.g. Arshad Khan" id="new_cust_name" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Mobile Number</label>
+                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" placeholder="0300-1234567" id="new_cust_mobile" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">City / Area</label>
+                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" placeholder="e.g. Multan" id="new_cust_address" />
+                                            </div>
+                                            <button
+                                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow mt-2"
+                                                onClick={() => {
+                                                    const name = document.getElementById('new_cust_name').value;
+                                                    const mobile = document.getElementById('new_cust_mobile').value;
+                                                    const address = document.getElementById('new_cust_address').value;
+                                                    if (!name) return setNotification({ type: 'error', text: 'Name is required' });
+
+                                                    const newC = createCustomer({ name, mobile, address });
+                                                    setSelectedCustomer(newC);
+                                                    setLocalCustomerSearch(newC.name);
+                                                    setShowAddCustomerModal(false);
+                                                }}
+                                            >
+                                                Save & Select
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Cart Items (Scrollable) */}
+                        <div className="flex-1 overflow-y-auto p-2">
+                            {cart.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2">
+                                    <div className="text-4xl text-gray-200">🛒</div>
+                                    <div>Cart is empty</div>
+                                    <div className="text-xs">Select items from the left</div>
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {cart.map(it => (
+                                        <div key={it.product.id} className="flex justify-between items-start p-2 hover:bg-blue-50 rounded group border-b border-gray-50 last:border-0">
+                                            <div className="flex-1 pr-2">
+                                                <div className="font-medium text-sm text-gray-800">{it.product.name}</div>
+                                                <div className="text-xs text-gray-500">{it.qty} x {it.product.sell_price}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="font-bold text-gray-800">Rs {it.qty * it.product.sell_price}</div>
+                                                <button className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition" onClick={() => removeFromCart(it.product.id)}>Remove</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer / Calculations */}
+                        <div className="bg-gray-50 p-4 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                            <div className="space-y-1 text-sm mb-3">
+                                <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>Rs {subtotal.toLocaleString()}</span></div>
+
+                                <div className="flex justify-between items-center text-gray-600">
+                                    <div className="flex items-center gap-1">
+                                        <span>Discount</span>
+                                        <select className="text-xs border rounded p-0.5" value={discountType} onChange={e => setDiscountType(e.target.value)}>
+                                            <option value="none">None</option>
+                                            <option value="fixed">Rs</option>
+                                            <option value="percent">%</option>
+                                        </select>
+                                    </div>
+                                    {discountType !== 'none' ? (
+                                        <input className="w-16 text-right border rounded px-1" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
+                                    ) : (
+                                        <span>0</span>
+                                    )}
+                                </div>
+                                {discountType !== 'none' && <div className="text-right text-xs text-green-600">- Rs {discountAmount.toLocaleString()}</div>}
+                            </div>
+
+                            <div className="flex justify-between items-end mb-4 border-t pt-2 border-gray-200">
+                                <span className="font-bold text-xl text-gray-800">Total</span>
+                                <span className="font-bold text-2xl text-blue-600">Rs {total.toLocaleString()}</span>
+                            </div>
+
+                            {/* Payment Tabs could go here, simplified for now */}
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <select className="w-full text-sm p-2 border rounded bg-white text-gray-700" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                                        <option value="full">Paid Full</option>
+                                        <option value="partial">Partial Pay</option>
+                                        <option value="none">Credit (Unpaid)</option>
+                                    </select>
+                                </div>
+                                {paymentMethod === 'partial' && <input className="w-20 border rounded p-2 text-sm" placeholder="Paid" type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />}
+                            </div>
+
+                            <button
+                                disabled={cart.length === 0}
+                                className={`w-full mt-3 py-3 rounded-lg font-bold text-white shadow-lg transition active:scale-95 ${cart.length === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                                onClick={makeInvoice}
+                            >
+                                CONFIRM PAYMENT (F2)
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Vendors/Companies CRUD ---
+            const createVendor = (v) => {
+                const newV = { ...v, id: vendors.length + 1 };
+                setVendors(prev => [newV, ...prev]);
+                addAudit("create_vendor", "vendor", newV.id, null, JSON.stringify(newV));
+                setNotification({ type: "success", text: `Vendor '${newV.name}' added` });
+            };
+            const updateVendor = (v) => {
+                setVendors(prev => prev.map(x => x.id === v.id ? v : x));
+                addAudit("update_vendor", "vendor", v.id, null, JSON.stringify(v));
+                setNotification({ type: "success", text: `Vendor updated` });
+            };
+            const deleteVendor = (id) => {
+                if (confirm("Delete this vendor?")) {
+                    setVendors(prev => prev.filter(x => x.id !== id));
+                    setNotification({ type: "success", text: "Vendor deleted" });
+                }
+            };
+            const createCompany = (c) => {
+                const newC = { ...c, id: companies.length + 1 };
+                setCompanies(prev => [newC, ...prev]);
+                addAudit("create_company", "company", newC.id, null, JSON.stringify(newC));
+                setNotification({ type: "success", text: `Company '${newC.name}' added` });
+            };
+            const updateCompany = (c) => {
+                setCompanies(prev => prev.map(x => x.id === c.id ? c : x));
+                addAudit("update_company", "company", c.id, null, JSON.stringify(c));
+                setNotification({ type: "success", text: `Company updated` });
+            };
+            const deleteCompany = (id) => {
+                if (confirm("Delete this company?")) {
+                    setCompanies(prev => prev.filter(x => x.id !== id));
+                    setNotification({ type: "success", text: "Company deleted" });
+                }
+            };
+
+            // --- Sales Officers CRUD ---
+            const createSalesOfficer = (s) => {
+                const newS = { ...s, id: salesOfficers.length + 1 };
+                setSalesOfficers(prev => [newS, ...prev]);
+                addAudit("create_so", "sales_officer", newS.id, null, JSON.stringify(newS));
+                setNotification({ type: "success", text: `Officer '${newS.name}' added` });
+            };
+            const updateSalesOfficer = (s) => {
+                setSalesOfficers(prev => prev.map(x => x.id === s.id ? s : x));
+                addAudit("update_so", "sales_officer", s.id, null, JSON.stringify(s));
+                setNotification({ type: "success", text: `Officer updated` });
+            };
+            const deleteSalesOfficer = (id) => {
+                if (confirm("Delete this officer?")) {
+                    setSalesOfficers(prev => prev.filter(x => x.id !== id));
+                    setNotification({ type: "success", text: "Officer deleted" });
+                }
+            };
+
+            const ProductsPage = () => {
+                const [localProducts, setLocalProducts] = useState(products);
+                const [showForm, setShowForm] = useState(false);
+                const [isEditMode, setIsEditMode] = useState(false);
+                const [form, setForm] = useState({ id: null, name: '', sku: '', brand: '', company: '', category: '', unit: '', purchase_price: 0, sell_price: 0, shop_qty: 0, warehouse_qty: 0, reorder_level: 5 });
+
+                useEffect(() => setLocalProducts(products), [products]);
+
+                const handleEdit = (product) => {
+                    setForm({ ...product });
+                    setIsEditMode(true);
+                    setShowForm(true);
+                };
+
+                const handleDelete = (id) => {
+                    deleteProduct(id);
+                };
+
+                const handleSave = () => {
+                    if (!form.name || !form.sell_price) return setNotification({ type: 'error', text: 'Name and Sell Price are required' });
+
+                    if (isEditMode) {
+                        updateProduct(form);
+                    } else {
+                        // Remove id for new creation (logic handles it or we pass it undefined)
+                        const { id, ...newP } = form;
+                        createProduct(newP);
+                    }
+                    // Reset
+                    setForm({ id: null, name: '', sku: '', brand: '', company: '', category: '', unit: '', purchase_price: 0, sell_price: 0, shop_qty: 0, warehouse_qty: 0, reorder_level: 5 });
+                    setShowForm(false);
+                    setIsEditMode(false);
+                };
+
+                const cancelForm = () => {
+                    setShowForm(false);
+                    setIsEditMode(false);
+                    setForm({ id: null, name: '', sku: '', brand: '', company: '', category: '', unit: '', purchase_price: 0, sell_price: 0, shop_qty: 0, warehouse_qty: 0, reorder_level: 5 });
+                }
+
+                return (
+                    <div className="p-6 h-screen flex flex-col">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Products Inventory</h1>
+                                <p className="text-gray-500 text-sm">Manage your product catalog, prices, and stock levels.</p>
+                            </div>
+                            <div>
+                                <button
+                                    className={`px-4 py-2 rounded-lg font-medium shadow-sm transition ${showForm ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                    onClick={() => { if (showForm) cancelForm(); else setShowForm(true); }}
+                                >
+                                    {showForm ? 'Cancel' : '+ Add New Product'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {showForm && (
+                            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6 animate-fade-in-down">
+                                <h3 className="text-lg font-semibold mb-4 border-b pb-2">{isEditMode ? 'Edit Product' : 'Add New Product'}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Product Name *</label>
+                                        <input
+                                            placeholder="e.g. AlphaCide 25% EC"
+                                            value={form.name}
+                                            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">SKU / Code</label>
+                                        <input
+                                            placeholder="e.g. PC-1001"
+                                            value={form.sku}
+                                            onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Company</label>
+                                        <input
+                                            placeholder="e.g. AgriChem Pvt Ltd"
+                                            value={form.company}
+                                            onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Brand</label>
+                                        <input
+                                            placeholder="e.g. AlphaChem"
+                                            value={form.brand}
+                                            onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                                        <input
+                                            placeholder="e.g. Insecticide"
+                                            value={form.category}
+                                            onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                                        <input
+                                            placeholder="e.g. Liter, Kg"
+                                            value={form.unit}
+                                            onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    {/* Spacer */}
+                                    <div className="hidden lg:block"></div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Purchase Price (PKR)</label>
+                                        <input
+                                            placeholder="0"
+                                            type="number"
+                                            value={form.purchase_price}
+                                            onChange={e => setForm(f => ({ ...f, purchase_price: Number(e.target.value) }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-800 mb-1">Sell Price (PKR) *</label>
+                                        <input
+                                            placeholder="0"
+                                            type="number"
+                                            value={form.sell_price}
+                                            onChange={e => setForm(f => ({ ...f, sell_price: Number(e.target.value) }))}
+                                            className="w-full border border-emerald-500 px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition font-semibold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Shop Quantity</label>
+                                        <input
+                                            placeholder="0"
+                                            type="number"
+                                            value={form.shop_qty}
+                                            onChange={e => setForm(f => ({ ...f, shop_qty: Number(e.target.value) }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-blue-50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Warehouse Qty</label>
+                                        <input
+                                            placeholder="0"
+                                            type="number"
+                                            value={form.warehouse_qty}
+                                            onChange={e => setForm(f => ({ ...f, warehouse_qty: Number(e.target.value) }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-orange-50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Reorder Alert Level</label>
+                                        <input
+                                            placeholder="5"
+                                            type="number"
+                                            value={form.reorder_level}
+                                            onChange={e => setForm(f => ({ ...f, reorder_level: Number(e.target.value) }))}
+                                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button className="px-5 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition" onClick={cancelForm}>Cancel</button>
+                                    <button className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow font-medium transition flex items-center gap-2" onClick={handleSave}>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                        {isEditMode ? 'Update Product' : 'Save Product'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-xl shadow border border-gray-200 flex-1 overflow-hidden flex flex-col">
+                            <div className="overflow-x-auto flex-1">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold sticky top-0 z-10">
+                                        <tr>
+                                            <th className="py-4 px-4 font-semibold text-gray-600">Product</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600">Company</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600 text-right">Shop Qty</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600 text-right">W.House Qty</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600 text-right">Total Qty</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600 text-right">Price</th>
+                                            <th className="py-4 px-4 font-semibold text-gray-600 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {localProducts.map(p => (
+                                            <tr key={p.id} className="hover:bg-blue-50/50 transition duration-150 group">
+                                                <td className="py-3 px-4">
+                                                    <div className="font-medium text-gray-800 cursor-pointer hover:text-blue-600" onClick={() => openProductModal(p)}>{p.name}</div>
+                                                    <div className="text-xs text-gray-500">{p.sku} • {p.brand}</div>
+                                                </td>
+                                                <td className="py-3 px-4 text-gray-600">{p.company}</td>
+                                                <td className="py-3 px-4 text-right font-medium text-blue-600 bg-blue-50/50">{p.shop_qty}</td>
+                                                <td className="py-3 px-4 text-right font-medium text-orange-600 bg-orange-50/50">{p.warehouse_qty}</td>
+                                                <td className="py-3 px-4 text-right font-bold text-gray-800">{(p.shop_qty || 0) + (p.warehouse_qty || 0)}</td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <div>{p.sell_price.toLocaleString()}</div>
+                                                    <div className="text-xs text-gray-400">PB: {p.purchase_price.toLocaleString()}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
+                                                        <button className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="Edit" onClick={() => handleEdit(p)}>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                                        </button>
+                                                        <button className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Delete" onClick={() => handleDelete(p.id)}>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {localProducts.length === 0 && (
+                                            <tr><td colSpan="7" className="text-center py-10 text-gray-500">No products found. Add some!</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="bg-gray-50 p-3 border-t text-xs text-gray-500 text-center">
+                                Total Products: {localProducts.length}
+                            </div>
+                        </div>
+
+                        {/* Updated Product Modal (Read-Only Detail View) */}
+                        {productModal.open && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-40 backdrop-blur-sm">
+                                <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all animate-pop">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-900">{productModal.product.name}</h2>
+                                            <p className="text-sm text-gray-500 mt-1">{productModal.product.category} • {productModal.product.brand}</p>
+                                        </div>
+                                        <button className="text-gray-400 hover:text-gray-600" onClick={closeProductModal}>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6 mb-6">
+                                        <div className="p-4 bg-gray-50 rounded-xl">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wide">Sale Price</div>
+                                            <div className="text-2xl font-bold text-blue-600 mt-1">PKR {productModal.product.sell_price}</div>
+                                        </div>
+                                        <div className="p-4 bg-gray-50 rounded-xl">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wide">Current Stock</div>
+                                            <div className={`text-2xl font-bold mt-1 ${productModal.product.current_qty <= productModal.product.reorder_level ? 'text-red-500' : 'text-green-600'}`}>
+                                                {productModal.product.current_qty} <span className="text-sm font-normal text-gray-500">{productModal.product.unit}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 text-sm">
+                                        <div className="flex justify-between py-2 border-b">
+                                            <span className="text-gray-500">SKU Code</span>
+                                            <span className="font-medium">{productModal.product.sku}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b">
+                                            <span className="text-gray-500">Company</span>
+                                            <span className="font-medium">{productModal.product.company}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b">
+                                            <span className="text-gray-500">Reorder Alert</span>
+                                            <span className="font-medium text-orange-600">{productModal.product.reorder_level} units</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8">
+                                        <div className="text-xs font-semibold text-gray-500 mb-2 uppercase">Quick Stock Adjust</div>
+                                        <div className="flex gap-3">
+                                            <button className="flex-1 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition font-medium" onClick={() => adjustProductQty(productModal.product.id, 10)}>+10 Add</button>
+                                            <button className="flex-1 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition font-medium" onClick={() => adjustProductQty(productModal.product.id, -1)}>-1 Remove</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const PurchasesPage = () => {
+                const [rows, setRows] = useState([{ product_id: products[0].id, qty: 1, purchase_price: products[0].purchase_price }]);
+                const [vendorId, setVendorId] = useState(vendors[0]?.id || null);
+                const [refNo, setRefNo] = useState('');
+                const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+                // Update purchase price defaults if product changes
+                const handleProductChange = (idx, pid) => {
+                    const p = products.find(x => x.id === Number(pid));
+                    setRows(prev => prev.map((r, i) => i === idx ? { ...r, product_id: Number(pid), purchase_price: p ? p.purchase_price : 0 } : r));
+                };
+
+                const updateRow = (idx, changes) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, ...changes } : r));
+                const addRow = () => setRows(prev => [...prev, { product_id: products[0]?.id || 1, qty: 1, purchase_price: products[0]?.purchase_price || 0 }]);
+                const removeRow = (idx) => setRows(prev => prev.filter((_, i) => i !== idx));
+
+                const calculateTotal = () => rows.reduce((acc, r) => acc + (r.qty * r.purchase_price), 0);
+
+                const save = () => {
+                    const items = rows.map(r => ({ product_id: r.product_id, qty: Number(r.qty), purchase_price: Number(r.purchase_price) }));
+                    const vendor = vendors.find(v => v.id === Number(vendorId));
+                    createPurchase({ vendor, items, advance: 0 }); // Todo: Add advance input if needed
+                    // Reset
+                    setRows([{ product_id: products[0]?.id || 1, qty: 1, purchase_price: products[0]?.purchase_price || 0 }]);
+                    setRefNo('');
+                };
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-gray-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Purchase Invoices</h1>
+                                <p className="text-gray-500 text-sm">Record new stock arrivals and manage vendor bills.</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm text-gray-500">Total Purchases Today</div>
+                                <div className="text-2xl font-bold text-blue-600">PKR {purchases.reduce((s, p) => s + p.total, 0).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
+                            {/* LEFT: New Purchase Entry */}
+                            <div className="lg:col-span-2 flex flex-col overflow-hidden bg-white rounded-xl shadow border border-gray-200">
+                                <div className="p-5 border-b bg-gray-50/50">
+                                    <h3 className="font-semibold text-gray-800 mb-4">New Purchase Entry</h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Select Vendor</label>
+                                            <select value={vendorId} onChange={e => setVendorId(Number(e.target.value))} className="w-full border p-2 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Reference No / Bill #</label>
+                                            <input placeholder="e.g. INV-9988" value={refNo} onChange={e => setRefNo(e.target.value)} className="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-5">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="text-xs uppercase text-gray-500 border-b">
+                                            <tr>
+                                                <th className="py-2 w-[40%]">Product</th>
+                                                <th className="py-2 w-[15%]">Qty</th>
+                                                <th className="py-2 w-[20%]">Cost (Unit)</th>
+                                                <th className="py-2 w-[20%] text-right">Total</th>
+                                                <th className="py-2 w-[5%]"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {rows.map((r, i) => (
+                                                <tr key={i} className="group">
+                                                    <td className="py-2 pr-2">
+                                                        <select value={r.product_id} onChange={e => handleProductChange(i, e.target.value)} className="w-full border p-1.5 rounded focus:ring-2 focus:ring-blue-500 outline-none text-gray-700">
+                                                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td className="py-2 pr-2">
+                                                        <input type="number" min="1" value={r.qty} onChange={e => updateRow(i, { qty: Number(e.target.value) })} className="w-full border p-1.5 rounded focus:ring-2 focus:ring-blue-500 outline-none text-center" />
+                                                    </td>
+                                                    <td className="py-2 pr-2">
+                                                        <input type="number" min="0" value={r.purchase_price} onChange={e => updateRow(i, { purchase_price: Number(e.target.value) })} className="w-full border p-1.5 rounded focus:ring-2 focus:ring-blue-500 outline-none text-right" />
+                                                    </td>
+                                                    <td className="py-2 text-right font-medium text-gray-800">
+                                                        {(r.qty * r.purchase_price).toLocaleString()}
+                                                    </td>
+                                                    <td className="py-2 text-center">
+                                                        {rows.length > 1 && (
+                                                            <button onClick={() => removeRow(i)} className="text-gray-400 hover:text-red-500 p-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    <button onClick={addRow} className="mt-3 text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium transition">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Another Line
+                                    </button>
+                                </div>
+
+                                <div className="p-5 bg-gray-50 border-t">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="text-gray-600">Total Items: {rows.length}</div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Net Payable</div>
+                                            <div className="text-2xl font-bold text-gray-900">Rs {calculateTotal().toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                    <button onClick={save} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition flex justify-center items-center gap-2">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                        Confirm Purchase
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: Recent History */}
+                            <div className="flex flex-col bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                                <div className="p-4 border-b bg-gray-50/50 flex justify-between items-center">
+                                    <h3 className="font-semibold text-gray-800">Recent History</h3>
+                                    <span className="text-xs text-gray-500 bg-white border px-2 py-0.5 rounded-full">Last 5</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto">
+                                    {purchases.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+                                            <svg className="w-10 h-10 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            <span className="text-sm">No records found</span>
+                                        </div>
+                                    ) : (
+                                        <ul className="divide-y">
+                                            {purchases.slice(0, 10).map(p => (
+                                                <li key={p.id} className="p-4 hover:bg-gray-50 transition cursor-pointer group">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <div className="font-medium text-gray-900">{vendors.find(v => v.id === p.vendor_id)?.name || 'Unknown Vendor'}</div>
+                                                        <div className="text-sm font-bold text-gray-800">Rs {p.total.toLocaleString()}</div>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs text-gray-500">
+                                                        <div>{p.purchase_no} • {new Date(p.created_at).toLocaleDateString()}</div>
+                                                        <div className="group-hover:text-blue-600 transition">View Details &rarr;</div>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const OrdersPage = () => {
+                const [orderRows, setOrderRows] = useState([{ product_id: products[0]?.id || 1, qty: 1 }]);
+                const [customerId, setCustomerId] = useState(customers[0]?.id || null);
+                const [deliveryDate, setDeliveryDate] = useState('');
+
+                // Recalculate if products change
+                const getItemPrice = (pid) => {
+                    const p = products.find(x => x.id === Number(pid));
+                    return p ? p.sell_price : 0;
+                };
+
+                const addOrderRow = () => setOrderRows(prev => [...prev, { product_id: products[0]?.id || 1, qty: 1 }]);
+                const removeOrderRow = (idx) => setOrderRows(prev => prev.filter((_, i) => i !== idx));
+
+                const calculateOrderTotal = () => orderRows.reduce((acc, r) => acc + (r.qty * getItemPrice(r.product_id)), 0);
+
+                const saveOrder = () => {
+                    const items = orderRows.map(r => ({ product_id: r.product_id, qty: Number(r.qty) }));
+                    const cust = customers.find(c => c.id === Number(customerId));
+                    createOrder({ customer: cust, items, payment: { method: 'partial', amount: 0 } });
+                    // Reset
+                    setOrderRows([{ product_id: products[0]?.id || 1, qty: 1 }]);
+                };
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Orders / Pre-booking</h1>
+                                <p className="text-gray-500 text-sm">Reserve stock for customers and manage future deliveries.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 overflow-hidden">
+                            {/* LEFT: Booking Form */}
+                            <div className="bg-white rounded-xl shadow border border-gray-200 flex flex-col overflow-hidden">
+                                <div className="p-5 border-b bg-gray-50">
+                                    <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                                        <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        Create New Booking
+                                    </h3>
+                                </div>
+                                <div className="p-5 overflow-y-auto flex-1">
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
+                                        <select value={customerId} onChange={e => setCustomerId(Number(e.target.value))} className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+                                            {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.mobile})</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="mb-6">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Items to Reserve</label>
+                                        <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+                                            {orderRows.map((r, i) => (
+                                                <div key={i} className="flex gap-2 items-center bg-white p-2 rounded shadow-sm">
+                                                    <select value={r.product_id} onChange={e => setOrderRows(prev => prev.map((row, idx) => idx === i ? { ...row, product_id: Number(e.target.value) } : row))} className="flex-1 border p-1 rounded text-sm focus:ring-1 focus:ring-purple-500 outline-none">
+                                                        {products.map(p => <option key={p.id} value={p.id}>{p.name} (Stk: {p.current_qty})</option>)}
+                                                    </select>
+                                                    <div className="w-20">
+                                                        <input type="number" min="1" placeholder="Qty" value={r.qty} onChange={e => setOrderRows(prev => prev.map((row, idx) => idx === i ? { ...row, qty: Number(e.target.value) } : row))} className="w-full border p-1 rounded text-center text-sm focus:ring-1 focus:ring-purple-500" />
+                                                    </div>
+                                                    <button onClick={() => removeOrderRow(i)} className="text-red-400 hover:text-red-600">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <button onClick={addOrderRow} className="w-full py-2 border-2 border-dashed border-gray-300 rounded text-gray-400 text-xs hover:border-purple-300 hover:text-purple-500 transition">
+                                                + Add Another Item
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg border border-purple-100 mb-4">
+                                        <span className="text-purple-900 font-medium">Estimated Total</span>
+                                        <span className="text-xl font-bold text-purple-700">Rs {calculateOrderTotal().toLocaleString()}</span>
+                                    </div>
+                                    <button onClick={saveOrder} className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg shadow font-medium transition">
+                                        Confirm Booking
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: Active Orders List */}
+                            <div className="bg-white rounded-xl shadow border border-gray-200 flex flex-col overflow-hidden">
+                                <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
+                                    <h3 className="font-semibold text-gray-800">Active Bookings</h3>
+                                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-bold">{orders.length} Active</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                    {orders.length === 0 ? (
+                                        <div className="text-center text-gray-400 py-10">
+                                            <div>No active orders.</div>
+                                            <div className="text-sm">Bookings will appear here.</div>
+                                        </div>
+                                    ) : (
+                                        orders.map(o => (
+                                            <div key={o.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition bg-white relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition">
+                                                    <button onClick={() => cancelOrder(o.id)} className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100">Cancel</button>
+                                                </div>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <div className="font-bold text-gray-800">{o.order_no}</div>
+                                                        <div className="text-xs text-gray-500">{customers.find(c => c.id === o.customer_id)?.name}</div>
+                                                    </div>
+                                                    <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Reserved</div>
+                                                </div>
+                                                <div className="space-y-1 mb-3">
+                                                    {o.items.map((it, idx) => {
+                                                        const p = products.find(x => x.id === it.product_id);
+                                                        return (
+                                                            <div key={idx} className="flex justify-between text-sm text-gray-600">
+                                                                <span>{p?.name || 'Unknown'}</span>
+                                                                <span>x{it.qty}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <div className="border-t pt-2 flex justify-between items-center text-xs text-gray-500">
+                                                    <span>Booked: {new Date(o.created_at).toLocaleDateString()}</span>
+                                                    {/* Placeholder for future action */}
+                                                    <span className="text-green-600 cursor-pointer font-medium hover:underline" onClick={() => setNotification({ type: 'info', text: 'Invoice generation logic would go here' })}>Convert to Sale &rarr;</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const VendorsPage = () => {
+                const [activeTab, setActiveTab] = useState('vendors'); // 'vendors' or 'companies'
+                const [showForm, setShowForm] = useState(false);
+                const [editingId, setEditingId] = useState(null);
+                const [formData, setFormData] = useState({});
+
+                const handleEdit = (item) => {
+                    setFormData(item);
+                    setEditingId(item.id);
+                    setShowForm(true);
+                };
+
+                const handleAdd = () => {
+                    setFormData(activeTab === 'vendors' ? { name: '', mobile: '', address: '' } : { name: '', contact: '', address: '' });
+                    setEditingId(null);
+                    setShowForm(true);
+                };
+
+                const save = () => {
+                    if (activeTab === 'vendors') {
+                        editingId ? updateVendor(formData) : createVendor(formData);
+                    } else {
+                        editingId ? updateCompany(formData) : createCompany(formData);
+                    }
+                    setShowForm(false);
+                };
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50 relative">
+                        {/* Header & Tabs */}
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Partners & Suppliers</h1>
+                                <p className="text-gray-500 text-sm">Manage vendors and manufacturing companies.</p>
+                            </div>
+                            <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                Add {activeTab === 'vendors' ? 'Vendor' : 'Company'}
+                            </button>
+                        </div>
+
+                        <div className="flex gap-4 border-b border-gray-200 mb-6">
+                            <button onClick={() => { setActiveTab('vendors'); setShowForm(false); }} className={`pb-3 px-4 font-medium transition ${activeTab === 'vendors' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Suppliers / Vendors</button>
+                            <button onClick={() => { setActiveTab('companies'); setShowForm(false); }} className={`pb-3 px-4 font-medium transition ${activeTab === 'companies' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Manufacturing Companies</button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="bg-white rounded-xl shadow overflow-hidden flex-1 overflow-y-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                                    <tr>
+                                        <th className="px-6 py-4">Name</th>
+                                        <th className="px-6 py-4">{activeTab === 'vendors' ? 'Mobile' : 'Contact Person'}</th>
+                                        <th className="px-6 py-4">Address/Location</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {(activeTab === 'vendors' ? vendors : companies).map(item => (
+                                        <tr key={item.id} className="hover:bg-gray-50 transition group">
+                                            <td className="px-6 py-4 font-medium text-gray-900">{item.name}</td>
+                                            <td className="px-6 py-4 text-gray-600">{activeTab === 'vendors' ? item.mobile : item.contact}</td>
+                                            <td className="px-6 py-4 text-gray-500 text-sm">{item.address}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition">
+                                                    <button onClick={() => handleEdit(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                                                    <button onClick={() => activeTab === 'vendors' ? deleteVendor(item.id) : deleteCompany(item.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Modal Form */}
+                        {showForm && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm">
+                                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-pop">
+                                    <h2 className="text-xl font-bold mb-4">{editingId ? 'Edit' : 'Add New'} {activeTab === 'vendors' ? 'Vendor' : 'Company'}</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                                            <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Enter Name" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">{activeTab === 'vendors' ? 'Mobile Number' : 'Contact Person/Phone'}</label>
+                                            <input value={activeTab === 'vendors' ? formData.mobile : formData.contact} onChange={e => setFormData({ ...formData, [activeTab === 'vendors' ? 'mobile' : 'contact']: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0300-1234567" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Address / Location</label>
+                                            <textarea value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Complete address..." rows="2"></textarea>
+                                        </div>
+                                        <div className="flex gap-3 pt-2">
+                                            <button onClick={() => setShowForm(false)} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Cancel</button>
+                                            <button onClick={save} className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const SalesOfficersPage = () => {
+                const [showForm, setShowForm] = useState(false);
+                const [editingId, setEditingId] = useState(null);
+                const [formData, setFormData] = useState({ name: '', mobile: '', area: '' });
+
+                const handleEdit = (so) => {
+                    setFormData(so);
+                    setEditingId(so.id);
+                    setShowForm(true);
+                };
+                const handleAdd = () => {
+                    setFormData({ name: '', mobile: '', area: '' });
+                    setEditingId(null);
+                    setShowForm(true);
+                };
+                const save = () => {
+                    editingId ? updateSalesOfficer(formData) : createSalesOfficer(formData);
+                    setShowForm(false);
+                };
+
+                // Calculate stats logic remains
+                const salesPerOfficer = salesOfficers.map(so => ({ ...so, sales: invoices.filter(inv => inv.sales_officer === so.id).reduce((s, inv) => s + inv.total, 0) }));
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50 relative">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Sales Officers</h1>
+                                <p className="text-gray-500 text-sm">Manage field staff and track their performance.</p>
+                            </div>
+                            <button onClick={handleAdd} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                Add Officer
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow overflow-hidden flex-1 overflow-y-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-purple-50 text-xs uppercase text-purple-900 font-semibold border-b border-purple-100">
+                                    <tr>
+                                        <th className="px-6 py-4">Officer Details</th>
+                                        <th className="px-6 py-4">Assigned Area</th>
+                                        <th className="px-6 py-4 text-right">Total Sales Generated</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {salesPerOfficer.map(so => (
+                                        <tr key={so.id} className="hover:bg-purple-50/30 transition group">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-gray-900">{so.name}</div>
+                                                <div className="text-xs text-gray-500">{so.mobile}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-700">
+                                                <span className="bg-gray-100 px-2 py-1 rounded-full text-xs font-medium border">{so.area}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="font-bold text-green-600">PKR {so.sales.toLocaleString()}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition">
+                                                    <button onClick={() => handleEdit(so)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                                                    <button onClick={() => deleteSalesOfficer(so.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Modal Form */}
+                        {showForm && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm">
+                                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-pop">
+                                    <h2 className="text-xl font-bold mb-4">{editingId ? 'Edit' : 'Add New'} Officer</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Full Name</label>
+                                            <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-purple-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Mobile Number</label>
+                                            <input value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-purple-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Assigned Area / Zone</label>
+                                            <input value={formData.area} onChange={e => setFormData({ ...formData, area: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-purple-500 outline-none" />
+                                        </div>
+                                        <div className="flex gap-3 pt-2">
+                                            <button onClick={() => setShowForm(false)} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Cancel</button>
+                                            <button onClick={save} className="flex-1 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 font-medium">Save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const AccountingPage = () => {
+                const [activeTab, setActiveTab] = useState('overview'); // overview, customers, vendors, expenses
+                const [selectedEntity, setSelectedEntity] = useState(null); // for ledger view
+                const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: 'General', owner_name: '' });
+
+                // --- Calculations ---
+                const totalReceivables = customers.reduce((sum, c) => sum + getCustomerBalance(c.id), 0);
+                const totalPayables = vendors.reduce((sum, v) => sum + getVendorBalance(v.id), 0);
+                const todaysExpenses = expenses.filter(e => e.date.startsWith(new Date().toISOString().split('T')[0]))
+                    .reduce((sum, e) => sum + Number(e.amount), 0);
+
+                // Simple Cash in Hand approximation (Total Sales - Total Purchases - Total Expenses)
+                // In real app, this would be complex. Here:
+                const totalSalesCash = invoices.reduce((sum, i) => sum + i.total, 0); // Assuming all cash for prototype simplification
+                const totalPurchaseCash = purchases.reduce((sum, p) => sum + p.total, 0);
+                const totalExpenseCash = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+                const cashInHand = totalSalesCash - totalPurchaseCash - totalExpenseCash;
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Accounting & Ledgers</h1>
+                                <p className="text-gray-500 text-sm">Financial health, ledgers, and expense management.</p>
+                            </div>
+                        </div>
+
+                        {/* Navigation Tabs */}
+                        <div className="flex gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm mb-6 w-fit">
+                            {['overview', 'customers', 'vendors', 'expenses'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => { setActiveTab(tab); setSelectedEntity(null); }}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* CONTENT AREA */}
+                        <div className="flex-1 overflow-hidden flex flex-col">
+
+                            {/* OVERVIEW TAB */}
+                            {activeTab === 'overview' && (
+                                <div className="space-y-6 overflow-y-auto pb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
+                                            <div className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Cash in Hand (Est)</div>
+                                            <div className="text-2xl font-bold text-gray-800">PKR {cashInHand.toLocaleString()}</div>
+                                            <div className="text-xs text-green-600 mt-2">Based on system entries</div>
+                                        </div>
+                                        <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
+                                            <div className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Receivables</div>
+                                            <div className="text-2xl font-bold text-blue-600">PKR {totalReceivables.toLocaleString()}</div>
+                                            <div className="text-xs text-gray-400 mt-2">From {customers.length} Customers</div>
+                                        </div>
+                                        <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
+                                            <div className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Payables</div>
+                                            <div className="text-2xl font-bold text-orange-600">PKR {totalPayables.toLocaleString()}</div>
+                                            <div className="text-xs text-gray-400 mt-2">To {vendors.length} Vendors</div>
+                                        </div>
+                                        <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
+                                            <div className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Today's Expenses</div>
+                                            <div className="text-2xl font-bold text-red-500">PKR {todaysExpenses.toLocaleString()}</div>
+                                            <div className="text-xs text-gray-400 mt-2">{expenses.filter(e => e.date.startsWith(new Date().toISOString().split('T')[0])).length} Transactions</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="bg-white p-5 rounded-xl shadow h-64 overflow-hidden flex flex-col">
+                                            <h3 className="font-bold text-gray-800 mb-4">Recent Transactions</h3>
+                                            <div className="flex-1 overflow-y-auto text-sm">
+                                                <ul className="divide-y">
+                                                    {auditLogs.slice(0, 8).map(log => (
+                                                        <li key={log.id} className="py-2 flex justify-between">
+                                                            <span className="text-gray-600 capitalize">{log.action.replace('_', ' ')}</span>
+                                                            <span className="text-gray-400 text-xs">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex items-center justify-center">
+                                            <div className="text-center">
+                                                <div className="text-blue-200 text-6xl mb-2">📊</div>
+                                                <div className="text-blue-800 font-bold">Financial Reports</div>
+                                                <div className="text-blue-600 text-xs">P&L, Balance Sheet, and Trial Balance available in Reports section</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* CUSTOMERS TAB (Ledgers) */}
+                            {activeTab === 'customers' && (
+                                <div className="flex h-full gap-6">
+                                    {/* List */}
+                                    <div className="w-1/3 bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                                        <div className="p-3 border-b bg-gray-50 font-bold text-gray-700">Customer List</div>
+                                        <div className="flex-1 overflow-y-auto">
+                                            {customers.map(c => (
+                                                <div key={c.id} onClick={() => setSelectedEntity(c)} className={`p-3 border-b cursor-pointer hover:bg-gray-50 ${selectedEntity?.id === c.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}`}>
+                                                    <div className="font-bold text-gray-800">{c.name}</div>
+                                                    <div className="flex justify-between text-xs mt-1">
+                                                        <span className="text-gray-500">{c.mobile}</span>
+                                                        <span className={getCustomerBalance(c.id) > 0 ? "text-blue-600 font-bold" : "text-gray-400"}>Bal: {getCustomerBalance(c.id).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Ledger View */}
+                                    <div className="flex-1 bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                                        {selectedEntity ? (
+                                            <>
+                                                <div className="p-5 border-b flex justify-between items-center bg-gray-50">
+                                                    <div>
+                                                        <h2 className="text-xl font-bold text-gray-800">{selectedEntity.name}</h2>
+                                                        <p className="text-xs text-gray-500">Customer Ledger Account</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xs text-gray-500 uppercase">Current Balance</div>
+                                                        <div className="text-2xl font-bold text-blue-600">PKR {getCustomerBalance(selectedEntity.id).toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-0">
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="bg-gray-100 text-gray-600 font-semibold border-b">
+                                                            <tr>
+                                                                <th className="p-3">Date</th>
+                                                                <th className="p-3">Ref #</th>
+                                                                <th className="p-3">Description</th>
+                                                                <th className="p-3 text-right">Debit</th>
+                                                                <th className="p-3 text-right">Credit</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y">
+                                                            {invoices.filter(i => i.customer_id === selectedEntity.id).map(inv => (
+                                                                <tr key={inv.id}>
+                                                                    <td className="p-3 text-gray-500">{new Date(inv.created_at).toLocaleDateString()}</td>
+                                                                    <td className="p-3 text-blue-600">{inv.invoice_no}</td>
+                                                                    <td className="p-3">Sales Invoice</td>
+                                                                    <td className="p-3 text-right font-medium">{inv.total.toLocaleString()}</td>
+                                                                    <td className="p-3 text-right text-gray-400">-</td>
+                                                                </tr>
+                                                            ))}
+                                                            {/* Placeholder for future payments */}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex-1 flex items-center justify-center text-gray-400">Select a customer to view ledger</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* VENDORS TAB (Ledgers) */}
+                            {activeTab === 'vendors' && (
+                                <div className="flex h-full gap-6">
+                                    {/* List */}
+                                    <div className="w-1/3 bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                                        <div className="p-3 border-b bg-gray-50 font-bold text-gray-700">Vendor List</div>
+                                        <div className="flex-1 overflow-y-auto">
+                                            {vendors.map(v => (
+                                                <div key={v.id} onClick={() => setSelectedEntity(v)} className={`p-3 border-b cursor-pointer hover:bg-gray-50 ${selectedEntity?.id === v.id ? 'bg-orange-50 border-l-4 border-l-orange-600' : ''}`}>
+                                                    <div className="font-bold text-gray-800">{v.name}</div>
+                                                    <div className="flex justify-between text-xs mt-1">
+                                                        <span className="text-gray-500">{v.mobile}</span>
+                                                        <span className={getVendorBalance(v.id) > 0 ? "text-orange-600 font-bold" : "text-gray-400"}>Payable: {getVendorBalance(v.id).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Ledger View */}
+                                    <div className="flex-1 bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                                        {selectedEntity ? (
+                                            <>
+                                                <div className="p-5 border-b flex justify-between items-center bg-gray-50">
+                                                    <div>
+                                                        <h2 className="text-xl font-bold text-gray-800">{selectedEntity.name}</h2>
+                                                        <p className="text-xs text-gray-500">Vendor Payable Account</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xs text-gray-500 uppercase">Total Payable</div>
+                                                        <div className="text-2xl font-bold text-orange-600">PKR {getVendorBalance(selectedEntity.id).toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-0">
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="bg-gray-100 text-gray-600 font-semibold border-b">
+                                                            <tr>
+                                                                <th className="p-3">Date</th>
+                                                                <th className="p-3">Ref #</th>
+                                                                <th className="p-3">Description</th>
+                                                                <th className="p-3 text-right">Debit</th>
+                                                                <th className="p-3 text-right">Credit</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y">
+                                                            {purchases.filter(p => p.vendor_id === selectedEntity.id).map(pur => (
+                                                                <tr key={pur.id}>
+                                                                    <td className="p-3 text-gray-500">{new Date(pur.created_at).toLocaleDateString()}</td>
+                                                                    <td className="p-3 text-blue-600">{pur.purchase_no}</td>
+                                                                    <td className="p-3">Purchase Invoice</td>
+                                                                    <td className="p-3 text-right text-gray-400">-</td>
+                                                                    <td className="p-3 text-right font-medium">{pur.total.toLocaleString()}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex-1 flex items-center justify-center text-gray-400">Select a vendor to view ledger</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* EXPENSES TAB */}
+                            {activeTab === 'expenses' && (
+                                <div className="flex h-full gap-6">
+                                    <div className="w-1/3 bg-white rounded-xl shadow p-5">
+                                        <h3 className="font-bold text-gray-800 mb-4">Add New Expense</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Description / Title</label>
+                                                <input
+                                                    className="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none"
+                                                    placeholder="e.g. Shop Electricity Bill"
+                                                    value={expenseForm.title}
+                                                    onChange={e => setExpenseForm(f => ({ ...f, title: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none"
+                                                    placeholder="0.00"
+                                                    value={expenseForm.amount}
+                                                    onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                                                <select
+                                                    className="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none"
+                                                    value={expenseForm.category}
+                                                    onChange={e => setExpenseForm(f => ({ ...f, category: e.target.value }))}
+                                                >
+                                                    <option>General</option>
+                                                    <option>Utilities / Bills</option>
+                                                    <option>Salaries / Wages</option>
+                                                    <option>Tea / Entertainment</option>
+                                                    <option>Maintenance</option>
+                                                    <option>Owner Withdrawal</option>
+                                                </select>
+                                            </div>
+                                            {expenseForm.category === 'Owner Withdrawal' && (
+                                                <div className="animate-fade-in-down">
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Owner Name</label>
+                                                    <input
+                                                        className="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none"
+                                                        placeholder="e.g. Ali, Salim"
+                                                        value={expenseForm.owner_name}
+                                                        onChange={e => setExpenseForm(f => ({ ...f, owner_name: e.target.value }))}
+                                                    />
+                                                </div>
+                                            )}
+                                            <button
+                                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow-md transition"
+                                                onClick={() => {
+                                                    if (!expenseForm.title || !expenseForm.amount) return setNotification({ type: 'error', text: 'Missing fields' });
+                                                    createExpense(expenseForm);
+                                                    setExpenseForm({ title: '', amount: '', category: 'General', owner_name: '' });
+                                                }}
+                                            >
+                                                Record Expense
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                                        <div className="p-4 border-b font-bold text-gray-700">Expense History</div>
+                                        <div className="flex-1 overflow-y-auto">
+                                            <table className="w-full text-left text-sm">
+                                                <thead className="bg-red-50 text-red-900 border-b border-red-100">
+                                                    <tr>
+                                                        <th className="p-3">Date</th>
+                                                        <th className="p-3">Description</th>
+                                                        <th className="p-3">Category</th>
+                                                        <th className="p-3 text-right">Amount</th>
+                                                        <th className="p-3 w-10"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y">
+                                                    {expenses.map(e => (
+                                                        <tr key={e.id} className="hover:bg-gray-50">
+                                                            <td className="p-3 text-gray-500">{new Date(e.date).toLocaleDateString()}</td>
+                                                            <td className="p-3 font-medium text-gray-800">{e.title} {e.owner_name ? <span className="text-xs text-gray-400">({e.owner_name})</span> : ''}</td>
+                                                            <td className="p-3 text-xs"><span className="bg-gray-100 px-2 py-1 rounded-full">{e.category}</span></td>
+                                                            <td className="p-3 text-right font-bold text-red-600">-{Number(e.amount).toLocaleString()}</td>
+                                                            <td className="p-3 text-center">
+                                                                <button onClick={() => deleteExpense(e.id)} className="text-gray-400 hover:text-red-600">&times;</button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {expenses.length === 0 && <tr><td colSpan="5" className="p-10 text-center text-gray-400">No expenses recorded yet</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                );
+            };
+
+            const EmployeesPage = () => {
+                const [showForm, setShowForm] = useState(false);
+                const [editingId, setEditingId] = useState(null);
+                const [formData, setFormData] = useState({ name: '', designation: '', mobile: '', salary: '', status: 'Active' });
+
+                const handleSubmit = () => {
+                    if (!formData.name || !formData.salary) return setNotification({ type: 'error', text: 'Name and Salary required' });
+                    if (editingId) {
+                        updateEmployee(editingId, formData);
+                    } else {
+                        createEmployee(formData);
+                    }
+                    setShowForm(false);
+                    setEditingId(null);
+                    setFormData({ name: '', designation: '', mobile: '', salary: '', status: 'Active' });
+                };
+
+                const handleEdit = (emp) => {
+                    setEditingId(emp.id);
+                    setFormData(emp);
+                    setShowForm(true);
+                };
+
+                const totalPayroll = employees.filter(e => e.status === 'Active').reduce((sum, e) => sum + Number(e.salary), 0);
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Employees & Payroll</h1>
+                                <p className="text-gray-500 text-sm">Manage staff, salaries, and attendance.</p>
+                            </div>
+                            <button
+                                onClick={() => { setEditingId(null); setFormData({ name: '', designation: '', mobile: '', salary: '', status: 'Active' }); setShowForm(true); }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md font-medium flex items-center gap-2 transition"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                Add Employee
+                            </button>
+                        </div>
+
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div className="bg-white p-5 rounded-xl shadow border border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <div className="text-gray-500 text-xs uppercase font-bold tracking-wider">Total Employees</div>
+                                    <div className="text-2xl font-bold text-gray-800">{employees.length}</div>
+                                </div>
+                                <div className="p-3 bg-blue-50 rounded-full text-blue-600">👥</div>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow border border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <div className="text-gray-500 text-xs uppercase font-bold tracking-wider">Active Staff</div>
+                                    <div className="text-2xl font-bold text-green-600">{employees.filter(e => e.status === 'Active').length}</div>
+                                </div>
+                                <div className="p-3 bg-green-50 rounded-full text-green-600">✅</div>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow border border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <div className="text-gray-500 text-xs uppercase font-bold tracking-wider">Monthly Payroll</div>
+                                    <div className="text-2xl font-bold text-purple-600">PKR {totalPayroll.toLocaleString()}</div>
+                                </div>
+                                <div className="p-3 bg-purple-50 rounded-full text-purple-600">💸</div>
+                            </div>
+                        </div>
+
+                        {/* Employee Table */}
+                        <div className="flex-1 bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col">
+                            <div className="flex-1 overflow-y-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-100 text-gray-600 font-semibold border-b">
+                                        <tr>
+                                            <th className="p-4">Name</th>
+                                            <th className="p-4">Designation</th>
+                                            <th className="p-4">Contact</th>
+                                            <th className="p-4">Status</th>
+                                            <th className="p-4 text-right">Salary</th>
+                                            <th className="p-4 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {employees.map(emp => (
+                                            <tr key={emp.id} className="hover:bg-gray-50 transition">
+                                                <td className="p-4 font-medium text-gray-800">{emp.name}</td>
+                                                <td className="p-4 text-gray-600">{emp.designation}</td>
+                                                <td className="p-4 text-gray-500 text-sm">{emp.mobile}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${emp.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                        {emp.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right font-bold text-gray-700">{Number(emp.salary).toLocaleString()}</td>
+                                                <td className="p-4 flex justify-center gap-2">
+                                                    <button onClick={() => handleEdit(emp)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                    </button>
+                                                    <button onClick={() => deleteEmployee(emp.id)} className="p-2 text-red-600 hover:bg-red-50 rounded transition" title="Delete">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Modal */}
+                        {showForm && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm">
+                                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md animate-pop">
+                                    <h2 className="text-xl font-bold mb-4">{editingId ? 'Edit' : 'Add New'} Employee</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Full Name</label>
+                                            <input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Designation</label>
+                                            <input value={formData.designation} onChange={e => setFormData({ ...formData, designation: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Sales Manager" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Mobile</label>
+                                            <input value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Salary (PKR)</label>
+                                            <input type="number" value={formData.salary} onChange={e => setFormData({ ...formData, salary: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                                <option>Active</option>
+                                                <option>On Leave</option>
+                                                <option>Inactive</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-3 pt-4">
+                                            <button onClick={() => setShowForm(false)} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium">Cancel</button>
+                                            <button onClick={handleSubmit} className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const ReportsPage = () => {
+                const totalSales = invoices.reduce((sum, i) => sum + i.total, 0);
+                const totalInvoices = invoices.length;
+                const totalPurchases = purchases.reduce((sum, p) => sum + p.total, 0);
+                const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+                const ownerDrawings = expenses.filter(e => e.category === 'Owner Withdrawal').reduce((sum, e) => sum + Number(e.amount), 0);
+                const operationalExpenses = totalExpenses - ownerDrawings;
+                const netProfit = totalSales - totalPurchases - operationalExpenses; // Net profit usually excludes owner drawings, but let's keep simple or separate
+                const lowStockCount = products.filter(p => p.current_qty <= p.reorder_level).length;
+                const totalStockValue = products.reduce((sum, p) => sum + (p.current_qty * p.purchase_price), 0);
+
+                return (
+                    <div className="p-6 h-screen flex flex-col bg-slate-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-800">Business Reports</h1>
+                                <p className="text-gray-500 text-sm">Key performance indicators and business health.</p>
+                            </div>
+                            <div className="text-right text-xs text-gray-500">
+                                Last updated: {new Date().toLocaleTimeString()}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto pb-10">
+
+                            {/* Sales Report Card */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition group cursor-pointer relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                                    <svg className="w-24 h-24 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">Sales Performance</h3>
+                                <p className="text-xs text-gray-500 mb-4">Total revenue generated</p>
+                                <div className="text-3xl font-bold text-blue-600 mb-2">PKR {totalSales.toLocaleString()}</div>
+                                <div className="flex justify-between items-center text-sm border-t pt-3 mt-2">
+                                    <span className="text-gray-600">Total Invoices</span>
+                                    <span className="font-bold">{totalInvoices}</span>
+                                </div>
+                            </div>
+
+                            {/* Inventory Health Card */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition group cursor-pointer relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                                    <svg className="w-24 h-24 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M20 7h-7L10 .58 7 7H0l6 5-2 7 6-5 6 5-2-7 6-5z"></path></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">Inventory Health</h3>
+                                <p className="text-xs text-gray-500 mb-4">Stock valuation & alerts</p>
+                                <div className="text-3xl font-bold text-orange-500 mb-2">PKR {totalStockValue.toLocaleString()}</div>
+                                <div className="flex justify-between items-center text-sm border-t pt-3 mt-2">
+                                    <span className="text-gray-600">Low Stock Items</span>
+                                    <span className={`font-bold ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{lowStockCount} Items</span>
+                                </div>
+                            </div>
+
+                            {/* Net Profit Card */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition group cursor-pointer relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                                    <svg className="w-24 h-24 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">Net Profit (Est)</h3>
+                                <p className="text-xs text-gray-500 mb-4">Sales - Purchase - Ops Expenses</p>
+                                <div className={`text-3xl font-bold mb-2 ${netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>PKR {netProfit.toLocaleString()}</div>
+                                <div className="flex justify-between items-center text-sm border-t pt-3 mt-2">
+                                    <span className="text-gray-600">Ops Cost</span>
+                                    <span className="font-bold text-red-500">{operationalExpenses.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Owner Drawings Card */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition group cursor-pointer relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                                    <svg className="w-24 h-24 text-purple-600" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">Owner Withdrawals</h3>
+                                <p className="text-xs text-gray-500 mb-4">Personal Drawing Accounts</p>
+                                <div className="text-3xl font-bold text-purple-600 mb-2">PKR {ownerDrawings.toLocaleString()}</div>
+                                <div className="flex justify-between items-center text-sm border-t pt-3 mt-2">
+                                    <span className="text-gray-600">Impact on Cash</span>
+                                    <span className="font-bold text-red-400">-{ownerDrawings.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Stock Movement Log (Mini) */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-2 lg:col-span-3">
+                                <h3 className="font-bold text-gray-800 mb-4">Recent Stock Movements</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-gray-50 text-gray-600 border-b">
+                                            <tr>
+                                                <th className="p-3">Time</th>
+                                                <th className="p-3">Product</th>
+                                                <th className="p-3">Type</th>
+                                                <th className="p-3 text-right">Qty</th>
+                                                <th className="p-3">Client / Vendor</th>
+                                                <th className="p-3">Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {stockMovements.slice(0, 5).map(sm => {
+                                                const product = products.find(p => p.id === sm.product_id);
+                                                return (
+                                                    <tr key={sm.id}>
+                                                        <td className="p-3 text-gray-500">{new Date(sm.timestamp).toLocaleTimeString()}</td>
+                                                        <td className="p-3 font-medium">{product?.name || 'Unknown'}</td>
+                                                        <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs uppercase font-bold ${sm.type === 'in' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{sm.type}</span></td>
+                                                        <td className="p-3 text-right font-bold">{sm.qty}</td>
+                                                        <td className="p-3 text-sm text-gray-600">{sm.related_party || '-'}</td>
+                                                        <td className="p-3 text-gray-500 capitalize">{sm.reason}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {stockMovements.length === 0 && <tr><td colSpan="6" className="p-5 text-center text-gray-400">No stock movements yet</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                );
+            };
+
+            const SettingsPage = () => (
+                <div className="p-6">
+                    <h1 className="text-2xl font-bold mb-4">Settings</h1>
+                    <div className="bg-white p-4 rounded shadow">
+                        <div className="mb-3"><div className="text-xs text-gray-500">Auto-logout</div><div className="font-medium">1 minute (prototype)</div></div>
+                        <div className="mb-3"><div className="text-xs text-gray-500">Color scheme</div><div className="font-medium">Light blue background • black text (prototype)</div></div>
+                        <div className="mb-3"><div className="text-xs text-gray-500">FBR Invoice</div><div className="font-medium">FBR format preview available in Print</div></div>
+                    </div>
+                </div>
+            );
+
+            // --- Main Render ---
+            if (!user) return <LoginPage />;
+
+            return (
+                <div className="flex bg-slate-50 min-h-screen">
+                    <style>{`
+        .card { transition: box-shadow 200ms ease, transform 200ms ease; }
+        .card:active { transform: translateY(1px) scale(.997); }
+        @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.995) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        .animate-pop { animation: popIn 220ms ease; }
+      `}</style>
+                    <LeftNav />
+                    <div className="flex-1">
+                        <div className="h-16 bg-white flex items-center px-6 justify-between border-b">
+                            <div className="font-semibold">{page.charAt(0).toUpperCase() + page.slice(1)}</div>
+
+                        </div>
+
+                        <div>
+                            {page === 'dashboard' && <Dashboard />}
+                            {page === 'pos' && <POSPage />}
+                            {page === 'products' && <ProductsPage />}
+                            {page === 'purchases' && <PurchasesPage />}
+                            {page === 'orders' && <OrdersPage />}
+                            {page === 'vendors' && <VendorsPage />}
+                            {page === 'sales_officers' && <SalesOfficersPage />}
+                            {page === 'accounting' && <AccountingPage />}
+                            {page === 'employees' && <EmployeesPage />}
+                            {page === 'reports' && <ReportsPage />}
+                            {page === 'settings' && <SettingsPage />}
+                        </div>
+                    </div>
+
+                    {notification && (
+                        <div className={`fixed bottom-6 right-6 p-3 rounded shadow ${notification.type === 'error' ? 'bg-red-100 text-red-800' : notification.type === 'warn' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                            {notification.text}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<PrototypeApp />);
+    </script>
+</body>
+
+</html>
